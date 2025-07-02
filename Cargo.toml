@@ -1,0 +1,7 @@
+[package]
+name = "numpy-uiua"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+uiua_parser = { git = "https://github.com/uiua-lang/uiua", rev = "a5bc738" }
