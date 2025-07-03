@@ -3,5 +3,11 @@ name = "numpy-uiua"
 version = "0.1.0"
 edition = "2024"
 
+[lib]
+name = "numpy_uiua"
+crate-type = ["cdylib"]
+
 [dependencies]
-uiua_parser = { git = "https://github.com/uiua-lang/uiua", rev = "a5bc738" }
+uiua = { git = "https://github.com/uiua-lang/uiua", rev = "a5bc738" }
+pyo3 = { version = "0.25", features = ["extension-module"] }
+numpy = "0.25"
