@@ -29,6 +29,7 @@ mod numpy_uiua {
                 .load_str(src)
                 .map_err(|e| UiuaCompileError::new_err(e.to_string()))?
                 .finish();
+
             Ok(Self {
                 assembly,
                 spawn_threads,

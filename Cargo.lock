@@ -1660,6 +1660,7 @@ dependencies = [
 name = "numpy-uiua"
 version = "0.1.0"
 dependencies = [
+ "ecow",
  "numpy",
  "pyo3",
  "uiua",

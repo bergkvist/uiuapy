@@ -1,4 +1,7 @@
-use numpy::npyffi::{NPY_TYPES, NpyTypes, PyArrayObject, PyDataType_ELSIZE, PyDataType_SET_ELSIZE};
+use ecow::EcoVec;
+use numpy::npyffi::{
+    NPY_TYPES, NpyTypes, PyArrayObject, PyDataType_ELSIZE, PyDataType_SET_ELSIZE,
+};
 use numpy::{PY_ARRAY_API, PyUntypedArray, npyffi};
 use pyo3::IntoPyObjectExt;
 use pyo3::exceptions::PyValueError;
@@ -18,52 +21,52 @@ pub fn numpy_array_to_uiua_value<'py>(py: Python<'py>, array: &Py<PyAny>) -> PyR
             )));
         }
         let arr = array.as_ptr() as *mut PyArrayObject;
-        let dims = pyarray_dims(arr);
+        let shape = pyarray_dims(arr);
         let ty: NPY_TYPES = std::mem::transmute((*(*arr).descr).type_num);
         match ty {
             NPY_TYPES::NPY_UBYTE => {
-                let slice = pyarray_data::<u8>(arr, &dims);
-                Ok(Value::Byte(uiua::Array::<u8>::new(dims, slice)))
+                let data = eco_vec_from_numpy_array(arr, &shape);
+                Ok(Value::Byte(uiua::Array::<u8>::new(shape, data)))
             }
             NPY_TYPES::NPY_DOUBLE => {
-                let slice = pyarray_data::<f64>(arr, &dims);
-                Ok(Value::Num(uiua::Array::<f64>::new(dims, slice)))
+                let data = eco_vec_from_numpy_array(arr, &shape);
+                Ok(Value::Num(uiua::Array::<f64>::new(shape, data)))
             }
             NPY_TYPES::NPY_CDOUBLE => {
-                let slice = pyarray_data::<Complex>(arr, &dims);
-                Ok(Value::Complex(uiua::Array::<Complex>::new(dims, slice)))
+                let data = eco_vec_from_numpy_array(arr, &shape);
+                Ok(Value::Complex(uiua::Array::<Complex>::new(shape, data)))
             }
             NPY_TYPES::NPY_UNICODE => {
-                let mut dims = dims;
-                dims.push(PyDataType_ELSIZE(py, (*arr).descr) as usize >> 2);
-                let slice = pyarray_data::<char>(arr, &dims);
-                Ok(Value::Char(uiua::Array::<char>::new(dims, slice)))
+                let mut shape = shape;
+                shape.push(PyDataType_ELSIZE(py, (*arr).descr) as usize >> 2);
+                let data = eco_vec_from_numpy_array(arr, &shape);
+                Ok(Value::Char(uiua::Array::<char>::new(shape, data)))
             }
             NPY_TYPES::NPY_OBJECT => {
-                let slice = pyarray_data::<Py<PyAny>>(arr, &dims);
+                let slice = pyarray_data::<Py<PyAny>>(arr, &shape);
                 let values = slice
                     .iter()
                     .map(|x| numpy_array_to_uiua_value(py, x).map(Boxed))
                     .collect::<PyResult<Vec<_>>>()?;
                 Ok(Value::Box(uiua::Array::<Boxed>::new(
-                    dims,
+                    shape,
                     values.as_slice(),
                 )))
             }
             NPY_TYPES::NPY_BOOL => {
-                let slice = pyarray_data::<bool>(arr, &dims);
+                let slice = pyarray_data::<bool>(arr, &shape);
                 let slice = slice.iter().copied().map(|x| x as u8).collect::<Vec<_>>();
-                Ok(Value::Byte(uiua::Array::<u8>::new(dims, slice.as_slice())))
+                Ok(Value::Byte(uiua::Array::<u8>::new(shape, slice.as_slice())))
             }
             NPY_TYPES::NPY_LONG => {
-                let slice = pyarray_data::<i64>(arr, &dims);
+                let slice = pyarray_data::<i64>(arr, &shape);
                 let slice = slice.iter().copied().map(|x| x as f64).collect::<Vec<_>>();
-                Ok(Value::Num(uiua::Array::<f64>::new(dims, slice.as_slice())))
+                Ok(Value::Num(uiua::Array::<f64>::new(shape, slice.as_slice())))
             }
             NPY_TYPES::NPY_ULONG => {
-                let slice = pyarray_data::<u64>(arr, &dims);
+                let slice = pyarray_data::<u64>(arr, &shape);
                 let slice = slice.iter().copied().map(|x| x as f64).collect::<Vec<_>>();
-                Ok(Value::Num(uiua::Array::<f64>::new(dims, slice.as_slice())))
+                Ok(Value::Num(uiua::Array::<f64>::new(shape, slice.as_slice())))
             }
             _ => Err(PyValueError::new_err(format!(
                 "Unsupported numpy array type: {ty:?}"
@@ -163,4 +166,16 @@ pub fn pyarray_new_from_data<'py, T>(
     let bound: Bound<'_, PyUntypedArray> =
         unsafe { Bound::from_owned_ptr(py, pyarray).downcast_into_unchecked() };
     bound.into_py_any(py)
+}
+
+// TODO: Consider optimizing From<Vec<T>> for EcoVec<T> upstream, to avoid this extremely hacky transmute.
+unsafe fn eco_vec_from_numpy_array<T>(arr: *mut PyArrayObject, shape: &[usize]) -> EcoVec<T> {
+    let len = shape.iter().copied().product::<usize>();
+    let ptr = unsafe { std::ptr::NonNull::new_unchecked((*arr).data.cast::<T>()) };
+    #[repr(C)]
+    struct TransmutedEcoVec<T> {
+        ptr: std::ptr::NonNull<T>,
+        len: usize,
+    }
+    unsafe { std::mem::transmute(TransmutedEcoVec { ptr, len }) }
 }
