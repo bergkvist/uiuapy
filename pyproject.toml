@@ -1,5 +1,5 @@
 [project]
-name = "numpy_uiua"
+name = "uiua"
 version = "0.1.0"
 description = "Add your description here"
 readme = "README.md"
@@ -14,9 +14,8 @@ dependencies = [
     "numpy>=2.3.1",
 ]
 
-
 [tool.setuptools]
-py-modules = ["numpy_uiua"]
+py-modules = ["uiua"]
 
 [build-system]
 requires = ["setuptools", "setuptools-rust"]
@@ -30,5 +29,5 @@ cache-keys = [{ file = "Cargo.toml" }, { file = "**/*.rs" }]
 main = "hello:main"
 
 [[tool.setuptools-rust.ext-modules]]
-target = "numpy_uiua"
+target = "uiua"
 path = "Cargo.toml"
