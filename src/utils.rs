@@ -1,13 +1,19 @@
 use ecow::EcoVec;
-use numpy::npyffi::{
-    NPY_TYPES, NpyTypes, PyArrayObject, PyDataType_ELSIZE, PyDataType_SET_ELSIZE,
-};
+use numpy::npyffi::{NPY_TYPES, NpyTypes, PyArrayObject, PyDataType_ELSIZE, PyDataType_SET_ELSIZE};
 use numpy::{PY_ARRAY_API, PyUntypedArray, npyffi};
 use pyo3::IntoPyObjectExt;
 use pyo3::exceptions::PyValueError;
 use pyo3::ffi::Py_IS_TYPE;
 use pyo3::prelude::*;
+use std::marker::PhantomData;
 use uiua::{Boxed, Complex, Value};
+
+pub fn timed<T>(label: &str, f: impl FnOnce() -> T) -> T {
+    let t0 = std::time::Instant::now();
+    let result = f();
+    println!("{label}: {:?}", t0.elapsed());
+    result
+}
 
 pub fn numpy_array_to_uiua_value<'py>(py: Python<'py>, array: &Py<PyAny>) -> PyResult<Value> {
     unsafe {
@@ -168,14 +174,23 @@ pub fn pyarray_new_from_data<'py, T>(
     bound.into_py_any(py)
 }
 
-// TODO: Consider optimizing From<Vec<T>> for EcoVec<T> upstream, to avoid this extremely hacky transmute.
-unsafe fn eco_vec_from_numpy_array<T>(arr: *mut PyArrayObject, shape: &[usize]) -> EcoVec<T> {
+unsafe fn eco_vec_from_numpy_array<T: Copy>(arr: *mut PyArrayObject, shape: &[usize]) -> EcoVec<T> {
     let len = shape.iter().copied().product::<usize>();
-    let ptr = unsafe { std::ptr::NonNull::new_unchecked((*arr).data.cast::<T>()) };
+    unsafe { ecovec_from_slice(std::slice::from_raw_parts((*arr).data.cast(), len)) }
+}
+
+unsafe fn ecovec_from_slice<T: Copy>(data: &[T]) -> EcoVec<T> {
     #[repr(C)]
     struct TransmutedEcoVec<T> {
         ptr: std::ptr::NonNull<T>,
         len: usize,
+        phantom: PhantomData<T>,
     }
-    unsafe { std::mem::transmute(TransmutedEcoVec { ptr, len }) }
+    let mut vec = EcoVec::with_capacity(data.len());
+    unsafe {
+        let vec: &mut TransmutedEcoVec<T> = std::mem::transmute(&mut vec);
+        std::ptr::copy_nonoverlapping(data.as_ptr(), vec.ptr.as_ptr(), data.len());
+        vec.len = data.len();
+    }
+    vec
 }

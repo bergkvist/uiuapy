@@ -8,7 +8,7 @@ mod numpy_uiua {
     use pyo3::{IntoPyObjectExt, create_exception};
     use uiua::{Compiler, SafeSys, Uiua};
 
-    use crate::utils::{numpy_array_to_uiua_value, uiua_value_to_numpy_array};
+    use crate::utils::{numpy_array_to_uiua_value, timed, uiua_value_to_numpy_array};
 
     create_exception!(numpy_uiua, UiuaCompileError, PyException);
     create_exception!(numpy_uiua, UiuaRuntimeError, PyException);
@@ -42,18 +42,21 @@ mod numpy_uiua {
                 true => SafeSys::with_thread_spawning(),
                 false => SafeSys::new(),
             });
-            let inputs = args
-                .into_iter()
-                .map(|x| numpy_array_to_uiua_value(py, &x))
-                .collect::<PyResult<Vec<_>>>()?;
+            let inputs = timed("numpy->uiua", || {
+                args.into_iter()
+                    .map(|x| numpy_array_to_uiua_value(py, &x))
+                    .collect::<PyResult<Vec<_>>>()
+            })?;
             uiua.push_all(inputs);
-            uiua.run_asm(self.assembly.clone())
+            timed("uiua.run_asm", || uiua.run_asm(self.assembly.clone()))
                 .map_err(|e| UiuaRuntimeError::new_err(e.to_string()))?;
             let stack = uiua.take_stack();
-            let outputs = stack
-                .into_iter()
-                .map(|x| uiua_value_to_numpy_array(py, x))
-                .collect::<PyResult<Vec<_>>>()?;
+            let outputs = timed("uiua->numpy", || {
+                stack
+                    .into_iter()
+                    .map(|x| uiua_value_to_numpy_array(py, x))
+                    .collect::<PyResult<Vec<_>>>()
+            })?;
             if outputs.len() == 1 {
                 Ok(outputs.into_iter().next().unwrap())
             } else {
