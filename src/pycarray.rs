@@ -53,7 +53,7 @@ impl PyCArray {
         Ok(unsafe { Bound::from_owned_ptr(py, pyarray).downcast_into_unchecked() })
     }
 
-    pub fn try_from_ref<'py, 'a>(obj: &'a Bound<'py, PyAny>) -> PyResult<&'a Bound<'py, Self>> {
+    pub fn try_from_ref<'py>(obj: &Bound<'py, PyAny>) -> PyResult<Bound<'py, Self>> {
         unsafe {
             if Py_IS_TYPE(
                 obj.as_ptr(),
@@ -62,17 +62,16 @@ impl PyCArray {
             {
                 return Err(PyValueError::new_err(format!("{obj} is not a numpy array")));
             }
-
-            let arr = obj.as_ptr().cast::<PyArrayObject>();
-            if (*arr).flags & npyffi::NPY_ARRAY_ALIGNED != npyffi::NPY_ARRAY_ALIGNED {
-                return Err(PyValueError::new_err(format!(
-                    "{obj} must be properly aligned"
-                )));
+            let arr = PY_ARRAY_API.PyArray_FromArray(
+                obj.py(),
+                obj.as_ptr().cast::<PyArrayObject>(),
+                std::ptr::null_mut(),
+                npyffi::NPY_ARRAY_CARRAY_RO,
+            );
+            if arr.is_null() {
+                return Err(PyErr::fetch(obj.py()));
             }
-            if (*arr).flags & npyffi::NPY_ARRAY_C_CONTIGUOUS != npyffi::NPY_ARRAY_C_CONTIGUOUS {
-                return Err(PyValueError::new_err(format!("{obj} must be C-contiguous")));
-            }
-            Ok(obj.downcast_unchecked())
+            Ok(Bound::from_owned_ptr(obj.py(), arr).downcast_into_unchecked())
         }
     }
 }
