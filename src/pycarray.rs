@@ -3,7 +3,7 @@ use numpy::npyffi::{NPY_TYPES, NpyTypes, PyArrayObject, PyDataType_SET_ELSIZE};
 use numpy::{PY_ARRAY_API, npyffi};
 use pyo3::exceptions::PyValueError;
 use pyo3::ffi::Py_IS_TYPE;
-use pyo3::prelude::*;
+use pyo3::{BoundObject, prelude::*};
 
 pub struct PyCArray;
 
@@ -76,7 +76,7 @@ impl PyCArray {
     }
 }
 
-impl<'py> PyCArrayMethods for Bound<'py, PyCArray> {
+impl<'py> PyCArrayMethods<'py> for Bound<'py, PyCArray> {
     fn data<T>(&self) -> &[T] {
         let data = self.as_pyarray_ref().data.cast();
         let len = self.len();
@@ -115,13 +115,26 @@ impl<'py> PyCArrayMethods for Bound<'py, PyCArray> {
                 .unwrap_unchecked()
         }
     }
+
+    fn return_value(self) -> PyResult<Bound<'py, PyAny>> {
+        let py = self.py();
+        let mp = self.into_ptr().cast();
+        unsafe {
+            let value = PY_ARRAY_API.PyArray_Return(py, mp);
+            if value.is_null() {
+                return Err(PyErr::fetch(py));
+            }
+            Ok(Bound::from_owned_ptr(py, value))
+        }
+    }
 }
 
-pub trait PyCArrayMethods {
+pub trait PyCArrayMethods<'py> {
     fn data<T>(&self) -> &[T];
     fn len(&self) -> usize;
     fn dims(&self) -> Vec<usize>;
     fn elsize(&self) -> usize;
     fn dtype(&self) -> NPY_TYPES;
     fn as_pyarray_ref(&self) -> &PyArrayObject;
+    fn return_value(self) -> PyResult<Bound<'py, PyAny>>;
 }
