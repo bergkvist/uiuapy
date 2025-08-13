@@ -1,3 +1,4 @@
+use ecow::EcoVec;
 use numpy::npyffi::NPY_TYPES;
 
 use crate::pycarray::{PyCArray, PyCArrayMethods};
@@ -92,32 +93,26 @@ pub fn numpy_to_uiua<'py>(array: &Bound<'py, PyAny>) -> PyResult<Value> {
             Value::Char(uiua::Array::new(shape, ecovec::from_slice(arr.data())))
         }
         NPY_TYPES::NPY_OBJECT => {
-            if arr.nd() == 0 {
-                // This avoids infinite recursion when passing in for example a dict.
-                return Err(PyValueError::new_err(format!(
-                    "Unsupported uiua input: {arr}"
-                )));
-            }
             let data = arr
                 .data::<Bound<'py, PyAny>>()
                 .iter()
                 .map(|x| numpy_to_uiua(x).map(Boxed))
                 .collect::<PyResult<Vec<_>>>()?;
-            Value::Box(uiua::Array::new(arr.dims(), data.as_slice()))
+            Value::Box(uiua::Array::new(arr.dims(), EcoVec::from(data)))
         }
         NPY_TYPES::NPY_BOOL => Value::Byte(uiua::Array::new(
             arr.dims(),
-            ecovec::from_slice(
-                &arr.data()
+            EcoVec::from(
+                arr.data()
                     .iter()
                     .map(|x: &bool| *x as u8)
-                    .collect::<Vec<_>>(),
+                    .collect::<Vec<_>>()
             ),
         )),
         NPY_TYPES::NPY_LONG => Value::Num(uiua::Array::<f64>::new(
             arr.dims(),
-            ecovec::from_slice(
-                &arr.data()
+            EcoVec::from(
+                arr.data()
                     .iter()
                     .map(|x: &i64| *x as f64)
                     .collect::<Vec<_>>(),
@@ -125,8 +120,8 @@ pub fn numpy_to_uiua<'py>(array: &Bound<'py, PyAny>) -> PyResult<Value> {
         )),
         NPY_TYPES::NPY_ULONG => Value::Num(uiua::Array::<f64>::new(
             arr.dims(),
-            ecovec::from_slice(
-                &arr.data()
+            EcoVec::from(
+                arr.data()
                     .iter()
                     .map(|x: &u64| *x as f64)
                     .collect::<Vec<_>>(),

@@ -1,6 +1,7 @@
 use numpy::npyffi::PyDataType_ELSIZE;
 use numpy::npyffi::{NPY_TYPES, NpyTypes, PyArrayObject, PyDataType_SET_ELSIZE};
 use numpy::{PY_ARRAY_API, npyffi};
+use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 
 pub struct PyCArray;
@@ -71,14 +72,21 @@ impl PyCArray {
             if arr.is_null() || PyErr::occurred(obj.py()) {
                 return Err(PyErr::fetch(obj.py()));
             }
-            Ok(Bound::from_owned_ptr(obj.py(), arr).downcast_into_unchecked())
+            let res = Bound::from_owned_ptr(obj.py(), arr).downcast_into_unchecked();
+            if res.nd() == 0 && res.dtype() == NPY_TYPES::NPY_OBJECT {
+                // This avoids infinite recursion when passing in for example a dict.
+                return Err(PyValueError::new_err(format!(
+                    "Unsupported uiua input: {res}"
+                )));
+            }
+            Ok(res)
         }
     }
 }
 
 impl<'py> PyCArrayMethods<'py> for Bound<'py, PyCArray> {
     fn data<T>(&self) -> &[T] {
-        let data = self.as_pyarray_ref().data.cast();
+        let data = self.as_pyarrayobject().data.cast();
         let len = self.len();
         unsafe { std::slice::from_raw_parts(data, len) }
     }
@@ -88,30 +96,31 @@ impl<'py> PyCArrayMethods<'py> for Bound<'py, PyCArray> {
     }
 
     fn dims(&self) -> Vec<usize> {
-        let array = self.as_pyarray_ref();
+        let array = self.as_pyarrayobject();
         (0..array.nd)
-            .map(|i| unsafe { array.dimensions.add(i as usize).read() } as usize)
+            .map(|i| unsafe { array.dimensions.add(i as usize).read() as usize })
             .collect()
     }
 
     fn nd(&self) -> usize {
-        self.as_pyarray_ref().nd as usize
+        self.as_pyarrayobject().nd as usize
     }
 
     fn elsize(&self) -> usize {
-        let descr = self.as_pyarray_ref().descr;
+        let descr = self.as_pyarrayobject().descr;
         unsafe { PyDataType_ELSIZE(self.py(), descr) as usize }
     }
 
     fn dtype(&self) -> NPY_TYPES {
-        let descr = self.as_pyarray_ref().descr;
+        let descr = self.as_pyarrayobject().descr;
+        assert!(!descr.is_null());
         unsafe {
             let type_num = (*descr).type_num;
             std::mem::transmute(type_num)
         }
     }
 
-    fn as_pyarray_ref(&self) -> &PyArrayObject {
+    fn as_pyarrayobject(&self) -> &PyArrayObject {
         unsafe {
             self.as_ptr()
                 .cast::<PyArrayObject>()
@@ -140,6 +149,7 @@ pub trait PyCArrayMethods<'py> {
     fn nd(&self) -> usize;
     fn elsize(&self) -> usize;
     fn dtype(&self) -> NPY_TYPES;
-    fn as_pyarray_ref(&self) -> &PyArrayObject;
+    fn as_pyarrayobject(&self) -> &PyArrayObject;
+    /// Converts 0-dimensional arrays into scalars by calling PyArray_Return
     fn return_value(self) -> PyResult<Bound<'py, PyAny>>;
 }
