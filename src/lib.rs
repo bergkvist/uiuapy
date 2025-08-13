@@ -16,7 +16,7 @@ mod numpy_uiua {
     use pyo3::types::PyTuple;
     use uiua::{Compiler, SafeSys, Uiua};
 
-    use super::{numpy_to_uiua, timed, uiua_to_numpy};
+    use super::{numpy_to_uiua, uiua_to_numpy};
 
     create_exception!(numpy_uiua, UiuaCompileError, PyException);
     create_exception!(numpy_uiua, UiuaRuntimeError, PyException);
@@ -54,26 +54,22 @@ mod numpy_uiua {
                 true => SafeSys::with_thread_spawning(),
                 false => SafeSys::new(),
             });
-            let inputs = timed("numpy->uiua", || {
-                args.into_iter()
-                    .map(|x| numpy_to_uiua(&x))
-                    .collect::<PyResult<Vec<_>>>()
-            })?;
+            let inputs = args
+                .into_iter()
+                .map(|x| numpy_to_uiua(&x))
+                .collect::<PyResult<Vec<_>>>()?;
             uiua.push_all(inputs);
-            timed("uiua.run_asm", || uiua.run_asm(self.assembly.clone()))
+            uiua.run_asm(self.assembly.clone())
                 .map_err(|e| UiuaRuntimeError::new_err(e.to_string()))?;
             let stack = uiua.take_stack();
-            let outputs = timed("uiua->numpy", || {
-                stack
-                    .into_iter()
-                    .map(|x| uiua_to_numpy(py, x))
-                    .collect::<PyResult<Vec<_>>>()
-            })?;
-            if outputs.len() == 1 {
-                Ok(outputs.into_iter().next().unwrap().into_any())
-            } else {
-                Ok(PyTuple::new(py, outputs)?.into_any())
-            }
+            let outputs = stack
+                .into_iter()
+                .map(|x| uiua_to_numpy(py, &x))
+                .collect::<PyResult<Vec<_>>>()?;
+            Ok(match outputs.len() {
+                1 => outputs.into_iter().next().unwrap().into_any(),
+                _ => PyTuple::new(py, outputs)?.into_any(),
+            })
         }
     }
 }
@@ -95,14 +91,20 @@ pub fn numpy_to_uiua<'py>(array: &Bound<'py, PyAny>) -> PyResult<Value> {
             shape.push(4 * arr.elsize());
             Value::Char(uiua::Array::new(shape, ecovec::from_slice(arr.data())))
         }
-        NPY_TYPES::NPY_OBJECT => Value::Box(uiua::Array::new(
-            arr.dims(),
-            arr.data::<Bound<'py, PyAny>>()
+        NPY_TYPES::NPY_OBJECT => {
+            if arr.nd() == 0 {
+                // This avoids infinite recursion when passing in for example a dict.
+                return Err(PyValueError::new_err(format!(
+                    "Unsupported uiua input: {arr}"
+                )));
+            }
+            let data = arr
+                .data::<Bound<'py, PyAny>>()
                 .iter()
                 .map(|x| numpy_to_uiua(x).map(Boxed))
-                .collect::<PyResult<Vec<_>>>()?
-                .as_slice(),
-        )),
+                .collect::<PyResult<Vec<_>>>()?;
+            Value::Box(uiua::Array::new(arr.dims(), data.as_slice()))
+        }
         NPY_TYPES::NPY_BOOL => Value::Byte(uiua::Array::new(
             arr.dims(),
             ecovec::from_slice(
@@ -139,35 +141,35 @@ pub fn numpy_to_uiua<'py>(array: &Bound<'py, PyAny>) -> PyResult<Value> {
     Ok(value)
 }
 
-pub fn uiua_to_numpy<'py>(py: Python<'py>, value: Value) -> PyResult<Bound<'py, PyAny>> {
+pub fn uiua_to_numpy<'py>(py: Python<'py>, value: &Value) -> PyResult<Bound<'py, PyAny>> {
     let mut dims = value.shape.iter().copied().collect::<Vec<_>>();
-    let result = match value {
+    match value {
         Value::Num(values) => {
             let data = values.elements().copied().collect::<Vec<_>>();
-            PyCArray::new(py, &dims, NPY_TYPES::NPY_DOUBLE, None, &data)
+            PyCArray::new(py, &dims, NPY_TYPES::NPY_DOUBLE, None, data)
         }
         Value::Byte(values) => {
             let data = values.elements().copied().collect::<Vec<_>>();
-            PyCArray::new(py, &dims, NPY_TYPES::NPY_UBYTE, None, &data)
+            PyCArray::new(py, &dims, NPY_TYPES::NPY_UBYTE, None, data)
         }
         Value::Complex(values) => {
             let data = values.elements().copied().collect::<Vec<_>>();
-            PyCArray::new(py, &dims, NPY_TYPES::NPY_CDOUBLE, None, &data)
+            PyCArray::new(py, &dims, NPY_TYPES::NPY_CDOUBLE, None, data)
         }
         Value::Char(values) => {
             let data = values.elements().copied().collect::<Vec<_>>();
             let elem_size = Some(4 * dims.pop().unwrap_or(0));
-            PyCArray::new(py, &dims, NPY_TYPES::NPY_UNICODE, elem_size, &data)
+            PyCArray::new(py, &dims, NPY_TYPES::NPY_UNICODE, elem_size, data)
         }
         Value::Box(values) => {
             let data = values
                 .elements()
-                .map(|Boxed(value)| uiua_to_numpy(py, value.clone()))
+                .map(|Boxed(value)| uiua_to_numpy(py, value))
                 .collect::<PyResult<Vec<_>>>()?;
-            PyCArray::new(py, &dims, NPY_TYPES::NPY_OBJECT, None, &data)
+            PyCArray::new(py, &dims, NPY_TYPES::NPY_OBJECT, None, data)
         }
-    }?;
-    result.return_value()
+    }?
+    .return_value()
 }
 
 pub fn timed<T>(label: &str, f: impl FnOnce() -> T) -> T {

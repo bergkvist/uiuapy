@@ -1,9 +1,7 @@
 use numpy::npyffi::PyDataType_ELSIZE;
 use numpy::npyffi::{NPY_TYPES, NpyTypes, PyArrayObject, PyDataType_SET_ELSIZE};
 use numpy::{PY_ARRAY_API, npyffi};
-use pyo3::exceptions::PyValueError;
-use pyo3::ffi::Py_IS_TYPE;
-use pyo3::{BoundObject, prelude::*};
+use pyo3::prelude::*;
 
 pub struct PyCArray;
 
@@ -13,23 +11,26 @@ impl PyCArray {
         dims: &[usize],
         ty: NPY_TYPES,
         elem_size: Option<usize>,
-        data: &[T],
+        mut data: Vec<T>,
     ) -> PyResult<Bound<'py, Self>> {
-        let descr = unsafe { PY_ARRAY_API.PyArray_DescrFromType(py, ty as i32) };
-        if descr.is_null() {
-            return Err(PyErr::fetch(py));
-        }
-        if let Some(elem_size) = elem_size {
-            unsafe {
-                PyDataType_SET_ELSIZE(py, descr, elem_size as isize);
+        unsafe {
+            let subtype = PY_ARRAY_API.get_type_object(py, NpyTypes::PyArray_Type);
+            if subtype.is_null() {
+                return Err(PyErr::fetch(py));
             }
-        }
-        let subtype = unsafe { PY_ARRAY_API.get_type_object(py, NpyTypes::PyArray_Type) };
-        if subtype.is_null() {
-            return Err(PyErr::fetch(py));
-        }
-        let pyarray = unsafe {
-            PY_ARRAY_API.PyArray_NewFromDescr(
+
+            let descr = PY_ARRAY_API.PyArray_DescrFromType(py, ty as i32);
+            if descr.is_null() {
+                return Err(PyErr::fetch(py));
+            }
+            if let Some(elem_size) = elem_size {
+                PyDataType_SET_ELSIZE(py, descr, elem_size as isize);
+                if PyErr::occurred(py) {
+                    return Err(PyErr::fetch(py));
+                }
+            }
+
+            let pyarray = PY_ARRAY_API.PyArray_NewFromDescr(
                 py,
                 subtype,
                 descr,
@@ -39,36 +40,35 @@ impl PyCArray {
                 std::ptr::null_mut(),
                 npyffi::NPY_ARRAY_CARRAY,
                 std::ptr::null_mut(),
-            )
-        };
-        if pyarray.is_null() {
-            return Err(PyErr::fetch(py));
+            );
+            if pyarray.is_null() {
+                return Err(PyErr::fetch(py));
+            }
+
+            std::ptr::copy_nonoverlapping(
+                data.as_ptr(),
+                (*pyarray.cast::<PyArrayObject>()).data.cast(),
+                data.len(),
+            );
+            // Prevents double drop of individual pyarray items that don't implement Copy
+            data.set_len(0);
+
+            Ok(Bound::from_owned_ptr(py, pyarray).downcast_into_unchecked())
         }
-        unsafe {
-            (*pyarray.cast::<PyArrayObject>())
-                .data
-                .cast::<T>()
-                .copy_from_nonoverlapping(data.as_ptr(), data.len());
-        }
-        Ok(unsafe { Bound::from_owned_ptr(py, pyarray).downcast_into_unchecked() })
     }
 
     pub fn try_from_ref<'py>(obj: &Bound<'py, PyAny>) -> PyResult<Bound<'py, Self>> {
         unsafe {
-            if Py_IS_TYPE(
-                obj.as_ptr(),
-                PY_ARRAY_API.get_type_object(obj.py(), NpyTypes::PyArray_Type),
-            ) == 0
-            {
-                return Err(PyValueError::new_err(format!("{obj} is not a numpy array")));
-            }
-            let arr = PY_ARRAY_API.PyArray_FromArray(
+            let arr = PY_ARRAY_API.PyArray_FromAny(
                 obj.py(),
-                obj.as_ptr().cast::<PyArrayObject>(),
+                obj.as_ptr(),
                 std::ptr::null_mut(),
+                0,
+                0,
                 npyffi::NPY_ARRAY_CARRAY_RO,
+                std::ptr::null_mut(),
             );
-            if arr.is_null() {
+            if arr.is_null() || PyErr::occurred(obj.py()) {
                 return Err(PyErr::fetch(obj.py()));
             }
             Ok(Bound::from_owned_ptr(obj.py(), arr).downcast_into_unchecked())
@@ -92,6 +92,10 @@ impl<'py> PyCArrayMethods<'py> for Bound<'py, PyCArray> {
         (0..array.nd)
             .map(|i| unsafe { array.dimensions.add(i as usize).read() } as usize)
             .collect()
+    }
+
+    fn nd(&self) -> usize {
+        self.as_pyarray_ref().nd as usize
     }
 
     fn elsize(&self) -> usize {
@@ -133,6 +137,7 @@ pub trait PyCArrayMethods<'py> {
     fn data<T>(&self) -> &[T];
     fn len(&self) -> usize;
     fn dims(&self) -> Vec<usize>;
+    fn nd(&self) -> usize;
     fn elsize(&self) -> usize;
     fn dtype(&self) -> NPY_TYPES;
     fn as_pyarray_ref(&self) -> &PyArrayObject;
