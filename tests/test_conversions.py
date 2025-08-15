@@ -65,16 +65,22 @@ def test_bool_scalar_conversion(unit):
     assert repr(unit(False)) == "np.uint8(0)"
 
 
+def test_complex_scalar_conversion(unit):
+    assert repr(unit(5+13j)) == "np.complex128(5+13j)"
+
 def test_complex128_scalar_conversion(unit):
-    assert repr(unit(np.complex128(1+1j))) == "np.complex128(1+1j)"
+    assert repr(unit(np.complex128(5+13j))) == "np.complex128(5+13j)"
 
 def test_boxed_array_conversion(unit):
     jagged = np.array([np.array([1,2,3]), np.array([1,2])], dtype='object')
     assert repr(unit(jagged)) == "array([array([1., 2., 3.]), array([1., 2.])], dtype=object)"
 
 
-def test_unicode_conversion(unit):
+def test_unicode_conversion_array(unit):
     assert repr(unit(["hello", "world"])) == "array(['hello', 'world'], dtype='<U5')"
+
+def test_unicode_conversion_string(unit):
+    assert repr(unit("hello")) == "np.str_('hello')"
 
 
 @pytest.fixture

@@ -11,6 +11,13 @@ def test_complex_array_sum(add):
         [2 + 1j, 3 + 2j]
     )
 
+def test_complex_prod(mul):
+    assert mul(1 + 3j, 2 + 4j) == (1 + 3j) * (2 + 4j)
+
 @pytest.fixture
 def add():
     return uiua.compile('+')
+
+@pytest.fixture
+def mul():
+    return uiua.compile('*')

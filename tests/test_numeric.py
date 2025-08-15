@@ -19,3 +19,6 @@ def test_uiua_elementwise_sum():
         uiua.compile('+')([1, 2, 3], [4, 5, 6]),
         [5, 7, 9]
     )
+
+def test_uiua_sub():
+    assert uiua.compile('-')(13, 7) == 6
