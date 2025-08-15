@@ -15,9 +15,6 @@ dependencies = [
     "pytest>=8.4.1",
 ]
 
-[project.scripts]
-test = "pytest"
-
 [tool.setuptools]
 py-modules = ["uiua"]
 

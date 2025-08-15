@@ -89,7 +89,7 @@ pub fn numpy_to_uiua<'py>(array: &Bound<'py, PyAny>) -> PyResult<Value> {
         }
         NPY_TYPES::NPY_UNICODE => {
             let mut shape = arr.dims();
-            shape.push(4 * arr.elsize());
+            shape.push(arr.elsize() / 4);
             Value::Char(uiua::Array::new(shape, ecovec::from_slice(arr.data())))
         }
         NPY_TYPES::NPY_OBJECT => {
@@ -106,7 +106,43 @@ pub fn numpy_to_uiua<'py>(array: &Bound<'py, PyAny>) -> PyResult<Value> {
                 arr.data()
                     .iter()
                     .map(|x: &bool| *x as u8)
-                    .collect::<Vec<_>>()
+                    .collect::<Vec<_>>(),
+            ),
+        )),
+        NPY_TYPES::NPY_FLOAT => Value::Num(uiua::Array::<f64>::new(
+            arr.dims(),
+            EcoVec::from(
+                arr.data()
+                    .iter()
+                    .map(|x: &f32| *x as f64)
+                    .collect::<Vec<_>>(),
+            ),
+        )),
+        NPY_TYPES::NPY_ULONG => Value::Num(uiua::Array::<f64>::new(
+            arr.dims(),
+            EcoVec::from(
+                arr.data()
+                    .iter()
+                    .map(|x: &u64| *x as f64)
+                    .collect::<Vec<_>>(),
+            ),
+        )),
+        NPY_TYPES::NPY_UINT => Value::Num(uiua::Array::<f64>::new(
+            arr.dims(),
+            EcoVec::from(
+                arr.data()
+                    .iter()
+                    .map(|x: &u32| *x as f64)
+                    .collect::<Vec<_>>(),
+            ),
+        )),
+        NPY_TYPES::NPY_USHORT => Value::Num(uiua::Array::<f64>::new(
+            arr.dims(),
+            EcoVec::from(
+                arr.data()
+                    .iter()
+                    .map(|x: &u16| *x as f64)
+                    .collect::<Vec<_>>(),
             ),
         )),
         NPY_TYPES::NPY_LONG => Value::Num(uiua::Array::<f64>::new(
@@ -118,12 +154,21 @@ pub fn numpy_to_uiua<'py>(array: &Bound<'py, PyAny>) -> PyResult<Value> {
                     .collect::<Vec<_>>(),
             ),
         )),
-        NPY_TYPES::NPY_ULONG => Value::Num(uiua::Array::<f64>::new(
+        NPY_TYPES::NPY_INT => Value::Num(uiua::Array::<f64>::new(
             arr.dims(),
             EcoVec::from(
                 arr.data()
                     .iter()
-                    .map(|x: &u64| *x as f64)
+                    .map(|x: &i32| *x as f64)
+                    .collect::<Vec<_>>(),
+            ),
+        )),
+        NPY_TYPES::NPY_SHORT => Value::Num(uiua::Array::<f64>::new(
+            arr.dims(),
+            EcoVec::from(
+                arr.data()
+                    .iter()
+                    .map(|x: &i16| *x as f64)
                     .collect::<Vec<_>>(),
             ),
         )),

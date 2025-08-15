@@ -87,7 +87,7 @@ impl PyCArray {
 impl<'py> PyCArrayMethods<'py> for Bound<'py, PyCArray> {
     fn data<T>(&self) -> &[T] {
         let data = self.as_pyarrayobject().data.cast();
-        let len = self.len();
+        let len = self.len() * self.elsize() / size_of::<T>();
         unsafe { std::slice::from_raw_parts(data, len) }
     }
 
