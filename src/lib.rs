@@ -19,8 +19,8 @@ mod numpy_uiua {
 
     use super::{numpy_to_uiua, uiua_to_numpy};
 
-    create_exception!(numpy_uiua, UiuaCompileError, PyException);
-    create_exception!(numpy_uiua, UiuaRuntimeError, PyException);
+    create_exception!(Uiua, CompileError, PyException);
+    create_exception!(Uiua, RuntimeError, PyException);
 
     #[pyclass(name = "compile")]
     pub struct Program {
@@ -36,7 +36,7 @@ mod numpy_uiua {
             let mut compiler = Compiler::new();
             let assembly = compiler
                 .load_str(src)
-                .map_err(|e| UiuaCompileError::new_err(e.to_string()))?
+                .map_err(|e| CompileError::new_err(e.to_string()))?
                 .finish();
 
             Ok(Self {
@@ -61,7 +61,7 @@ mod numpy_uiua {
                 .collect::<PyResult<Vec<_>>>()?;
             uiua.push_all(inputs);
             uiua.run_asm(self.assembly.clone())
-                .map_err(|e| UiuaRuntimeError::new_err(e.to_string()))?;
+                .map_err(|e| RuntimeError::new_err(e.to_string()))?;
             let stack = uiua.take_stack();
             let outputs = stack
                 .into_iter()
