@@ -10,7 +10,7 @@ mod ecovec;
 mod pycarray;
 
 #[pyo3::pymodule(name = "uiua")]
-mod numpy_uiua {
+mod uiuapy {
     use pyo3::create_exception;
     use pyo3::exceptions::PyException;
     use pyo3::prelude::*;
