@@ -1,7 +1,7 @@
 use ecow::EcoVec;
 use numpy::npyffi::NPY_TYPES;
 
-use crate::pycarray::{PyCArray, PyCArrayMethods};
+use crate::pycarray::{PyContiguousArray, PyContiguousArrayMethods};
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 use uiua::{Boxed, Value};
@@ -76,7 +76,7 @@ mod uiuapy {
 }
 
 pub fn numpy_to_uiua<'py>(array: &Bound<'py, PyAny>) -> PyResult<Value> {
-    let arr = PyCArray::try_from_ref(array)?;
+    let arr = PyContiguousArray::from_pyany(array)?;
     let value = match arr.dtype() {
         NPY_TYPES::NPY_UBYTE => {
             Value::Byte(uiua::Array::new(arr.dims(), ecovec::from_slice(arr.data())))
@@ -89,7 +89,7 @@ pub fn numpy_to_uiua<'py>(array: &Bound<'py, PyAny>) -> PyResult<Value> {
         }
         NPY_TYPES::NPY_UNICODE => {
             let mut shape = arr.dims();
-            shape.push(arr.elsize() / 4);
+            shape.push(arr.elsize() / size_of::<char>());
             Value::Char(uiua::Array::new(shape, ecovec::from_slice(arr.data())))
         }
         NPY_TYPES::NPY_OBJECT => {
@@ -182,31 +182,32 @@ pub fn numpy_to_uiua<'py>(array: &Bound<'py, PyAny>) -> PyResult<Value> {
 }
 
 pub fn uiua_to_numpy<'py>(py: Python<'py>, value: &Value) -> PyResult<Bound<'py, PyAny>> {
-    let mut dims = value.shape.iter().copied().collect::<Vec<_>>();
+    let dims = value.shape.iter().copied().collect::<Vec<_>>();
     match value {
         Value::Num(values) => {
             let data = values.elements().copied().collect::<Vec<_>>();
-            PyCArray::new(py, &dims, NPY_TYPES::NPY_DOUBLE, None, data)
+            PyContiguousArray::new(py, NPY_TYPES::NPY_DOUBLE, data, &dims, None)
         }
         Value::Byte(values) => {
             let data = values.elements().copied().collect::<Vec<_>>();
-            PyCArray::new(py, &dims, NPY_TYPES::NPY_UBYTE, None, data)
+            PyContiguousArray::new(py, NPY_TYPES::NPY_UBYTE, data, &dims, None)
         }
         Value::Complex(values) => {
             let data = values.elements().copied().collect::<Vec<_>>();
-            PyCArray::new(py, &dims, NPY_TYPES::NPY_CDOUBLE, None, data)
+            PyContiguousArray::new(py, NPY_TYPES::NPY_CDOUBLE, data, &dims, None)
         }
         Value::Char(values) => {
             let data = values.elements().copied().collect::<Vec<_>>();
-            let elem_size = Some(4 * dims.pop().unwrap_or(0));
-            PyCArray::new(py, &dims, NPY_TYPES::NPY_UNICODE, elem_size, data)
+            let mut dims = dims;
+            let elem_size = Some(size_of::<char>() * dims.pop().unwrap_or(0));
+            PyContiguousArray::new(py, NPY_TYPES::NPY_UNICODE, data, &dims, elem_size)
         }
         Value::Box(values) => {
             let data = values
                 .elements()
                 .map(|Boxed(value)| uiua_to_numpy(py, value))
                 .collect::<PyResult<Vec<_>>>()?;
-            PyCArray::new(py, &dims, NPY_TYPES::NPY_OBJECT, None, data)
+            PyContiguousArray::new(py, NPY_TYPES::NPY_OBJECT, data, &dims, None)
         }
     }?
     .return_value()

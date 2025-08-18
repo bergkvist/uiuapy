@@ -1,19 +1,22 @@
-use numpy::npyffi::PyDataType_ELSIZE;
-use numpy::npyffi::{NPY_TYPES, NpyTypes, PyArrayObject, PyDataType_SET_ELSIZE};
-use numpy::{PY_ARRAY_API, npyffi};
+use numpy::PY_ARRAY_API;
+use numpy::npyffi::{
+    self, NPY_TYPES, NpyTypes, PyArray_Descr, PyArrayObject, PyDataType_ELSIZE,
+    PyDataType_SET_ELSIZE,
+};
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 
-pub struct PyCArray;
+pub struct PyContiguousArray;
 
-impl PyCArray {
+impl PyContiguousArray {
     pub fn new<'py, T>(
         py: Python<'py>,
-        dims: &[usize],
         ty: NPY_TYPES,
-        elem_size: Option<usize>,
         mut data: Vec<T>,
+        dims: &[usize],
+        elem_size: Option<usize>,
     ) -> PyResult<Bound<'py, Self>> {
+        ensure_dims_consistent_with_len(&data, dims, elem_size)?;
         unsafe {
             let subtype = PY_ARRAY_API.get_type_object(py, NpyTypes::PyArray_Type);
             if subtype.is_null() {
@@ -58,7 +61,7 @@ impl PyCArray {
         }
     }
 
-    pub fn try_from_ref<'py>(obj: &Bound<'py, PyAny>) -> PyResult<Bound<'py, Self>> {
+    pub fn from_pyany<'py>(obj: &Bound<'py, PyAny>) -> PyResult<Bound<'py, Self>> {
         unsafe {
             let arr = PY_ARRAY_API.PyArray_FromAny(
                 obj.py(),
@@ -84,9 +87,25 @@ impl PyCArray {
     }
 }
 
-impl<'py> PyCArrayMethods<'py> for Bound<'py, PyCArray> {
+fn ensure_dims_consistent_with_len<T>(
+    data: &[T],
+    dims: &[usize],
+    elem_size: Option<usize>,
+) -> PyResult<()> {
+    let entries_per_elem = elem_size.map(|x| x / std::mem::size_of::<T>()).unwrap_or(1);
+    let expected_len = dims.iter().product::<usize>() * entries_per_elem;
+    let got_len = data.len();
+    if expected_len != got_len {
+        return Err(PyValueError::new_err(format!(
+            "Expected {expected_len} elements, got {got_len} (dims: {dims:?}, elem_size: {elem_size:?}, entries_per_elem: {entries_per_elem})",
+        )));
+    }
+    Ok(())
+}
+
+impl<'py> PyContiguousArrayMethods<'py> for Bound<'py, PyContiguousArray> {
     fn data<T>(&self) -> &[T] {
-        let data = self.as_pyarrayobject().data.cast();
+        let data = self.as_arrayobject().data.cast();
         let len = self.len() * self.elsize() / size_of::<T>();
         unsafe { std::slice::from_raw_parts(data, len) }
     }
@@ -96,37 +115,36 @@ impl<'py> PyCArrayMethods<'py> for Bound<'py, PyCArray> {
     }
 
     fn dims(&self) -> Vec<usize> {
-        let array = self.as_pyarrayobject();
+        let array = self.as_arrayobject();
         (0..array.nd)
             .map(|i| unsafe { array.dimensions.add(i as usize).read() as usize })
             .collect()
     }
 
     fn nd(&self) -> usize {
-        self.as_pyarrayobject().nd as usize
+        self.as_arrayobject().nd as usize
     }
 
     fn elsize(&self) -> usize {
-        let descr = self.as_pyarrayobject().descr;
+        let descr = self.as_arrayobject().descr;
         unsafe { PyDataType_ELSIZE(self.py(), descr) as usize }
     }
 
     fn dtype(&self) -> NPY_TYPES {
-        let descr = self.as_pyarrayobject().descr;
-        assert!(!descr.is_null());
-        unsafe {
-            let type_num = (*descr).type_num;
-            std::mem::transmute(type_num)
-        }
+        let type_num = self.descr().type_num;
+        unsafe { std::mem::transmute(type_num) }
     }
 
-    fn as_pyarrayobject(&self) -> &PyArrayObject {
-        unsafe {
-            self.as_ptr()
-                .cast::<PyArrayObject>()
-                .as_ref()
-                .unwrap_unchecked()
-        }
+    fn descr(&self) -> &PyArray_Descr {
+        let descr = self.as_arrayobject().descr;
+        assert!(!descr.is_null());
+        unsafe { &*descr }
+    }
+
+    fn as_arrayobject(&self) -> &PyArrayObject {
+        let ptr = self.as_ptr().cast::<PyArrayObject>();
+        assert!(!ptr.is_null());
+        unsafe { &*ptr }
     }
 
     fn return_value(self) -> PyResult<Bound<'py, PyAny>> {
@@ -142,14 +160,15 @@ impl<'py> PyCArrayMethods<'py> for Bound<'py, PyCArray> {
     }
 }
 
-pub trait PyCArrayMethods<'py> {
+pub trait PyContiguousArrayMethods<'py> {
     fn data<T>(&self) -> &[T];
     fn len(&self) -> usize;
     fn dims(&self) -> Vec<usize>;
     fn nd(&self) -> usize;
     fn elsize(&self) -> usize;
     fn dtype(&self) -> NPY_TYPES;
-    fn as_pyarrayobject(&self) -> &PyArrayObject;
+    fn descr(&self) -> &PyArray_Descr;
+    fn as_arrayobject(&self) -> &PyArrayObject;
     /// Converts 0-dimensional arrays into scalars by calling PyArray_Return
     fn return_value(self) -> PyResult<Bound<'py, PyAny>>;
 }
