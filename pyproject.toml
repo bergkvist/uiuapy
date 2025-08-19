@@ -4,16 +4,19 @@ name = "uiuapy"
 version = "0.1.0"
 description = "Use the Uiua array programming language from Python"
 readme = "README.md"
-requires-python = ">=3.13"
+requires-python = ">=3.9"
 keywords = ["uiuapy", "uiua", "apl", "J", "kdb", "numpy", "pyo3", "array", "programming", "language", "vectorized"]
 classifiers = [
     "Development Status :: 4 - Beta",
-    "Operating System :: Linux",
+    "Operating System :: POSIX :: Linux",
+    "Operating System :: Microsoft :: Windows",
     "Operating System :: MacOS",
-    "Programming Language :: Uiua",
     "Programming Language :: Rust",
     "Programming Language :: Python",
-    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
     "Programming Language :: Python :: Implementation :: CPython",
     "License :: OSI Approved :: MIT License",
@@ -29,7 +32,7 @@ classifiers = [
     "Intended Audience :: Financial and Insurance Industry",
 ]
 dependencies = [
-    "numpy>=2.3.1",
+    "numpy>=1.21.0",
 ]
 
 [dependency-groups]
@@ -77,6 +80,12 @@ build-backend = "setuptools.build_meta"
 [tool.uv]
 package = true
 cache-keys = [{ file = "pyproject.toml"}, { file = "Cargo.toml" }, { file = "Cargo.lock" }, { file = "**/*.rs" }]
+
+[[tool.uv.index]]
+name = "testpypi"
+url = "https://test.pypi.org/simple/"
+publish-url = "https://test.pypi.org/legacy/"
+explicit = true
 
 [[tool.setuptools-rust.ext-modules]]
 target = "uiua"

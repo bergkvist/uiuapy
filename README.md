@@ -1,5 +1,7 @@
 # UiuaPy
 
+A bridge between [Uiua](https://www.uiua.org/) and [NumPy](https://numpy.org/) - enabling you to do terse array processing in Python.
+
 ## Installation
 ```sh
 pip install uiuapy
