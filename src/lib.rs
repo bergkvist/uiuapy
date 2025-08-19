@@ -50,6 +50,7 @@ mod uiuapy {
             });
             let inputs = args
                 .into_iter()
+                .rev()
                 .map(|x| numpy_to_uiua(&x))
                 .collect::<PyResult<Vec<_>>>()?;
             uiua.push_all(inputs);
@@ -58,6 +59,7 @@ mod uiuapy {
             let stack = uiua.take_stack();
             let outputs = stack
                 .into_iter()
+                .rev()
                 .map(|x| uiua_to_numpy(py, &x))
                 .collect::<PyResult<Vec<_>>>()?;
             Ok(match outputs.len() {

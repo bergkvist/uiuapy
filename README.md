@@ -12,7 +12,7 @@ import uiua
 print(uiua.compile('/+')([1, 2, 3]))
 # 6.0
 
-print(uiua.compile('⌕')("abracabra", "ab")) 
+print(uiua.compile('⌕')('ab', 'abracabra')) 
 # [1 0 0 0 0 1 0 0 0]
 ```
 

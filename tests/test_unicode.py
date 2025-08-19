@@ -4,7 +4,7 @@ from numpy.testing import assert_array_equal
 
 def test_unicode_find():
     find = uiua.compile('⌕')
-    assert_array_equal(find('abracabra', 'ab'), [1, 0, 0, 0, 0, 1, 0, 0, 0])
+    assert_array_equal(find('ab', 'abracabra'), [1, 0, 0, 0, 0, 1, 0, 0, 0])
 
 
 def test_unicode_find_ab():

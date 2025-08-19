@@ -19,4 +19,4 @@ def test_uiua_elementwise_sum():
 
 
 def test_uiua_sub():
-    assert uiua.compile('-')(13, 7) == 6
+    assert uiua.compile('-')(13, 7) == -6

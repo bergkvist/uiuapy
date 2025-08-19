@@ -19,7 +19,7 @@ def test_three_args(unit):
 
 
 def test_duplicate_top_of_stack():
-    assert uiua.compile('.')(1, 2, 3) == (1, 2, 3, 3)
+    assert uiua.compile('.')(1, 2, 3) == (1, 1, 2, 3)
 
 
 @pytest.fixture
