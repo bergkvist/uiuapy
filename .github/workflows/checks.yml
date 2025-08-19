@@ -31,7 +31,7 @@ jobs:
       - name: Run clippy
         run: cargo clippy --all-targets -- -D warnings
 
-  python-checks:
+  python-lints:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Repository
@@ -55,5 +55,26 @@ jobs:
       - name: Run ruff check to check for linting issues
         run: uv run ruff check
 
-      - name: Run pytest tests
-        run: uv run pytest
+
+  python-tests:
+    name: Run Python tests on ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+        version: ["3.12", "3.13"]
+    steps:
+    - name: Setup Rust
+      uses: actions-rust-lang/setup-rust-toolchain@v1
+    
+    - name: Setup UV Python package manager
+      uses: astral-sh/setup-uv@v6
+      with:
+        enable-cache: true
+        python-version: ${{ matrix.version }}
+  
+    - name: Install the project
+      run: uv sync --locked --all-extras --dev
+
+    - name: Run pytest tests
+      run: uv run pytest
