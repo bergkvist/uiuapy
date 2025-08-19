@@ -80,9 +80,8 @@ pub fn into_uiua_compatible_dtype<'py>(
     match arr.dtype() {
         NPY_UBYTE | NPY_DOUBLE | NPY_CDOUBLE | NPY_UNICODE | NPY_OBJECT => Ok(arr),
         NPY_BOOL => arr.into_dtype(NPY_UBYTE),
-        NPY_FLOAT | NPY_ULONG | NPY_UINT | NPY_USHORT | NPY_LONG | NPY_INT | NPY_SHORT => {
-            arr.into_dtype(NPY_DOUBLE)
-        }
+        NPY_LONGDOUBLE | NPY_FLOAT | NPY_LONGLONG | NPY_LONG | NPY_INT | NPY_SHORT
+        | NPY_ULONGLONG | NPY_ULONG | NPY_UINT | NPY_USHORT => arr.into_dtype(NPY_DOUBLE),
         ty => Err(PyValueError::new_err(format!(
             "Unsupported numpy array type: {ty:?}"
         ))),
