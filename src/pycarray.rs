@@ -147,6 +147,25 @@ impl<'py> PyContiguousArrayMethods<'py> for Bound<'py, PyContiguousArray> {
         unsafe { &*ptr }
     }
 
+    fn into_dtype(self, dtype: NPY_TYPES) -> PyResult<Bound<'py, PyContiguousArray>> {
+        unsafe {
+            let descr = PY_ARRAY_API.PyArray_DescrFromType(self.py(), dtype as i32);
+            if descr.is_null() {
+                return Err(PyErr::fetch(self.py()));
+            }
+            let array = PY_ARRAY_API.PyArray_FromArray(
+                self.py(),
+                self.as_ptr().cast::<PyArrayObject>(),
+                descr,
+                npyffi::NPY_ARRAY_CARRAY_RO,
+            );
+            if array.is_null() {
+                return Err(PyErr::fetch(self.py()));
+            }
+            Ok(Bound::from_owned_ptr(self.py(), array).downcast_into_unchecked())
+        }
+    }
+
     fn return_value(self) -> PyResult<Bound<'py, PyAny>> {
         let py = self.py();
         let mp = self.into_ptr().cast();
@@ -169,6 +188,8 @@ pub trait PyContiguousArrayMethods<'py> {
     fn dtype(&self) -> NPY_TYPES;
     fn descr(&self) -> &PyArray_Descr;
     fn as_arrayobject(&self) -> &PyArrayObject;
+    /// Attempts to convert a PyContiguousArray to a different dtype
+    fn into_dtype(self, dtype: NPY_TYPES) -> PyResult<Bound<'py, PyContiguousArray>>;
     /// Converts 0-dimensional arrays into scalars by calling PyArray_Return
     fn return_value(self) -> PyResult<Bound<'py, PyAny>>;
 }

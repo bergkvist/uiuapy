@@ -40,7 +40,7 @@ pub fn uiua_to_numpy<'py>(py: Python<'py>, value: &Value) -> PyResult<Bound<'py,
 }
 
 pub fn numpy_to_uiua<'py>(array: &Bound<'py, PyAny>) -> PyResult<Value> {
-    let arr = PyContiguousArray::from_pyany(array)?;
+    let arr = into_uiua_compatible_dtype(PyContiguousArray::from_pyany(array)?)?;
     let value = match arr.dtype() {
         NPY_TYPES::NPY_UBYTE => {
             Value::Byte(uiua::Array::new(arr.dims(), ecovec::from_slice(arr.data())))
@@ -64,78 +64,6 @@ pub fn numpy_to_uiua<'py>(array: &Bound<'py, PyAny>) -> PyResult<Value> {
                 .collect::<PyResult<Vec<_>>>()?;
             Value::Box(uiua::Array::new(arr.dims(), EcoVec::from(data)))
         }
-        NPY_TYPES::NPY_BOOL => Value::Byte(uiua::Array::new(
-            arr.dims(),
-            EcoVec::from(
-                arr.data()
-                    .iter()
-                    .map(|x: &bool| *x as u8)
-                    .collect::<Vec<_>>(),
-            ),
-        )),
-        NPY_TYPES::NPY_FLOAT => Value::Num(uiua::Array::<f64>::new(
-            arr.dims(),
-            EcoVec::from(
-                arr.data()
-                    .iter()
-                    .map(|x: &f32| *x as f64)
-                    .collect::<Vec<_>>(),
-            ),
-        )),
-        NPY_TYPES::NPY_ULONG => Value::Num(uiua::Array::<f64>::new(
-            arr.dims(),
-            EcoVec::from(
-                arr.data()
-                    .iter()
-                    .map(|x: &u64| *x as f64)
-                    .collect::<Vec<_>>(),
-            ),
-        )),
-        NPY_TYPES::NPY_UINT => Value::Num(uiua::Array::<f64>::new(
-            arr.dims(),
-            EcoVec::from(
-                arr.data()
-                    .iter()
-                    .map(|x: &u32| *x as f64)
-                    .collect::<Vec<_>>(),
-            ),
-        )),
-        NPY_TYPES::NPY_USHORT => Value::Num(uiua::Array::<f64>::new(
-            arr.dims(),
-            EcoVec::from(
-                arr.data()
-                    .iter()
-                    .map(|x: &u16| *x as f64)
-                    .collect::<Vec<_>>(),
-            ),
-        )),
-        NPY_TYPES::NPY_LONG => Value::Num(uiua::Array::<f64>::new(
-            arr.dims(),
-            EcoVec::from(
-                arr.data()
-                    .iter()
-                    .map(|x: &i64| *x as f64)
-                    .collect::<Vec<_>>(),
-            ),
-        )),
-        NPY_TYPES::NPY_INT => Value::Num(uiua::Array::<f64>::new(
-            arr.dims(),
-            EcoVec::from(
-                arr.data()
-                    .iter()
-                    .map(|x: &i32| *x as f64)
-                    .collect::<Vec<_>>(),
-            ),
-        )),
-        NPY_TYPES::NPY_SHORT => Value::Num(uiua::Array::<f64>::new(
-            arr.dims(),
-            EcoVec::from(
-                arr.data()
-                    .iter()
-                    .map(|x: &i16| *x as f64)
-                    .collect::<Vec<_>>(),
-            ),
-        )),
         ty => {
             return Err(PyValueError::new_err(format!(
                 "Unsupported numpy array type: {ty:?}"
@@ -143,4 +71,20 @@ pub fn numpy_to_uiua<'py>(array: &Bound<'py, PyAny>) -> PyResult<Value> {
         }
     };
     Ok(value)
+}
+
+pub fn into_uiua_compatible_dtype<'py>(
+    arr: Bound<'py, PyContiguousArray>,
+) -> PyResult<Bound<'py, PyContiguousArray>> {
+    use NPY_TYPES::*;
+    match arr.dtype() {
+        NPY_UBYTE | NPY_DOUBLE | NPY_CDOUBLE | NPY_UNICODE | NPY_OBJECT => Ok(arr),
+        NPY_BOOL => arr.into_dtype(NPY_UBYTE),
+        NPY_FLOAT | NPY_ULONG | NPY_UINT | NPY_USHORT | NPY_LONG | NPY_INT | NPY_SHORT => {
+            arr.into_dtype(NPY_DOUBLE)
+        }
+        ty => Err(PyValueError::new_err(format!(
+            "Unsupported numpy array type: {ty:?}"
+        ))),
+    }
 }
