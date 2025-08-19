@@ -1,13 +1,32 @@
+
 [project]
 name = "uiuapy"
 version = "0.1.0"
-description = "Add your description here"
+description = "Use the Uiua array programming language from Python"
 readme = "README.md"
 requires-python = ">=3.13"
+keywords = ["uiuapy", "uiua", "apl", "J", "kdb", "numpy", "pyo3", "array", "programming", "language", "vectorized"]
 classifiers = [
+    "Development Status :: 4 - Beta",
+    "Operating System :: Linux",
+    "Operating System :: MacOS",
+    "Programming Language :: Uiua",
     "Programming Language :: Rust",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.13",
     "Programming Language :: Python :: Implementation :: CPython",
-    "Programming Language :: Python :: Implementation :: PyPy",
+    "License :: OSI Approved :: MIT License",
+    "Topic :: Scientific/Engineering",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Topic :: Scientific/Engineering :: Mathematics",
+    "Topic :: Software Development :: Libraries",
+    "Topic :: Software Development :: Compilers",
+    "Topic :: Software Development :: Interpreters",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Education",
+    "Intended Audience :: Science/Research",
+    "Intended Audience :: Financial and Insurance Industry",
 ]
 dependencies = [
     "numpy>=2.3.1",
@@ -18,6 +37,10 @@ dev = [
     "pytest>=8.4.1",
     "ruff>=0.12.9",
 ]
+
+[project.urls]
+Homepage = "https://github.com/bergkvist/uiuapy"
+Repository = "https://github.com/bergkvist/uiuapy"
 
 [tool.ruff.format]
 quote-style = "single"
@@ -53,7 +76,7 @@ build-backend = "setuptools.build_meta"
 
 [tool.uv]
 package = true
-cache-keys = [{file = "pyproject.toml"}, { file = "Cargo.toml" }, { file = "Cargo.lock" }, { file = "**/*.rs" }]
+cache-keys = [{ file = "pyproject.toml"}, { file = "Cargo.toml" }, { file = "Cargo.lock" }, { file = "**/*.rs" }]
 
 [[tool.setuptools-rust.ext-modules]]
 target = "uiua"
