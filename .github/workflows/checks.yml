@@ -62,7 +62,7 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-latest, macos-latest]
-        version: ["3.12", "3.13"]
+        version: ["3.13"]
     steps:
     - name: Checkout Repository
       uses: actions/checkout@v4
