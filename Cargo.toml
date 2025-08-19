@@ -8,7 +8,7 @@ name = "uiuapy"
 crate-type = ["cdylib"]
 
 [dependencies]
-uiua = { git = "https://github.com/uiua-lang/uiua", rev = "a5bc738" }
+uiua = { git = "https://github.com/uiua-lang/uiua", rev = "8c232e8" }
 pyo3 = { version = "0.25", features = ["extension-module"] }
 numpy = "0.25"
 ecow = "0.2.6"
