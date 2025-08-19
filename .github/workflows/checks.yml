@@ -57,13 +57,16 @@ jobs:
 
 
   python-tests:
-    name: Run Python tests on ${{ matrix.os }}
+    name: Run Python ${{ matrix.version }} tests on ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
         os: [ubuntu-latest, macos-latest]
         version: ["3.12", "3.13"]
     steps:
+    - name: Checkout Repository
+      uses: actions/checkout@v4
+
     - name: Setup Rust
       uses: actions-rust-lang/setup-rust-toolchain@v1
     
