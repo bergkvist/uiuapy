@@ -1707,16 +1707,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "numpy-uiua"
-version = "0.1.0"
-dependencies = [
- "ecow",
- "numpy",
- "pyo3",
- "uiua",
-]
-
-[[package]]
 name = "objc-sys"
 version = "0.3.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3120,6 +3110,16 @@ dependencies = [
  "serde",
  "serde_tuple",
  "unicode-segmentation",
+]
+
+[[package]]
+name = "uiuapy"
+version = "0.1.0"
+dependencies = [
+ "ecow",
+ "numpy",
+ "pyo3",
+ "uiua",
 ]
 
 [[package]]

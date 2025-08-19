@@ -1,5 +1,5 @@
 [project]
-name = "uiua"
+name = "uiuapy"
 version = "0.1.0"
 description = "Add your description here"
 readme = "README.md"
@@ -10,13 +10,13 @@ classifiers = [
     "Programming Language :: Python :: Implementation :: PyPy",
 ]
 dependencies = [
-    "maturin>=1.9.0",
     "numpy>=2.3.1",
-    "pytest>=8.4.1",
 ]
 
-[tool.setuptools]
-py-modules = ["uiua"]
+[dependency-groups]
+dev = [
+    "pytest>=8.4.1",
+]
 
 [build-system]
 requires = ["setuptools", "setuptools-rust"]
@@ -24,7 +24,7 @@ build-backend = "setuptools.build_meta"
 
 [tool.uv]
 package = true
-cache-keys = [{ file = "Cargo.toml" }, { file = "**/*.rs" }]
+cache-keys = [{file = "pyproject.toml"}, { file = "Cargo.toml" }, { file = "Cargo.lock" }, { file = "**/*.rs" }]
 
 [[tool.setuptools-rust.ext-modules]]
 target = "uiua"
