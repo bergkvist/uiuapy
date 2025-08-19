@@ -31,7 +31,7 @@ jobs:
       - name: Run clippy
         run: cargo clippy --all-targets -- -D warnings
 
-  python-pytest:
+  python-checks:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Repository
@@ -49,6 +49,11 @@ jobs:
       - name: Install the project
         run: uv sync --locked --all-extras --dev
       
+      - name: Run ruff format to check for formatting issues
+        run: uv run ruff format --check --diff
+
+      - name: Run ruff check to check for linting issues
+        run: uv run ruff check
+
       - name: Run pytest tests
         run: uv run pytest
-      
