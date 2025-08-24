@@ -20,3 +20,9 @@ def test_uiua_elementwise_sum():
 
 def test_uiua_sub():
     assert uiua.compile('-')(13, 7) == -6
+
+
+def test_2d_array():
+    assert_array_equal(
+        uiua.compile('°△3_4')(), [[0, 1, 2, 3], [4, 5, 6, 7], [8, 9, 10, 11]]
+    )

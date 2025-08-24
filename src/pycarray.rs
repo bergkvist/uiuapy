@@ -42,7 +42,7 @@ impl PyContiguousArray {
                 dims.as_ptr() as *mut isize,
                 std::ptr::null_mut(),
                 std::ptr::null_mut(),
-                npyffi::NPY_ARRAY_CARRAY,
+                0,
                 std::ptr::null_mut(),
             );
             if pyarray.is_null() {
