@@ -18,14 +18,14 @@ mod uiuapy {
     #[pyclass(name = "compile")]
     pub struct Program {
         assembly: uiua::Assembly,
-        spawn_threads: Option<bool>,
+        allow_threads: Option<bool>,
     }
 
     #[pymethods]
     impl Program {
         #[new]
-        #[pyo3(signature = (src, spawn_threads=None))]
-        pub fn new(src: &str, spawn_threads: Option<bool>) -> PyResult<Self> {
+        #[pyo3(signature = (src, allow_threads=None))]
+        pub fn new(src: &str, allow_threads: Option<bool>) -> PyResult<Self> {
             let mut compiler = Compiler::new();
             let assembly = compiler
                 .load_str(src)
@@ -34,19 +34,19 @@ mod uiuapy {
 
             Ok(Self {
                 assembly,
-                spawn_threads,
+                allow_threads,
             })
         }
 
-        #[pyo3(signature = (*args, spawn_threads=None))]
+        #[pyo3(signature = (*args, allow_threads=None))]
         pub fn __call__<'py>(
             &self,
             py: Python<'py>,
             args: Vec<Bound<'py, PyAny>>,
-            spawn_threads: Option<bool>,
+            allow_threads: Option<bool>,
         ) -> PyResult<Bound<'py, PyAny>> {
-            let spawn_threads = spawn_threads.or(self.spawn_threads).unwrap_or(false);
-            let mut uiua = Uiua::with_backend(match spawn_threads {
+            let allow_threads = allow_threads.or(self.allow_threads).unwrap_or(false);
+            let mut uiua = Uiua::with_backend(match allow_threads {
                 true => SafeSys::with_thread_spawning(),
                 false => SafeSys::new(),
             });

@@ -22,6 +22,16 @@ def test_duplicate_top_of_stack():
     assert uiua.compile('.')(1, 2, 3) == (1, 1, 2, 3)
 
 
+def test_unsupported_compile_flags_raise_type_error():
+    with pytest.raises(TypeError):
+        uiua.compile('', unsupported_flag=True)
+
+
+def test_unsupported_invocation_flags_raise_type_error(unit):
+    with pytest.raises(TypeError):
+        unit(unsupported_flag=True)
+
+
 @pytest.fixture
 def unit():
     return uiua.compile('')

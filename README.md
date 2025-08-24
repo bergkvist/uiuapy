@@ -20,6 +20,21 @@ print(uiua.compile('⌕')('ab', 'abracabra'))
 # [1 0 0 0 0 1 0 0 0]
 ```
 
+### Flags
+You can allow thread spawning either specific to a program, or specific to an invocation. Invocation flags take precedence over program flags.
+```py
+import numpy as np
+import uiua
+
+xs = np.linspace(0, 1, 10_000)
+
+print(uiua.compile('/+', allow_threads=True)(xs))
+# 50000.0
+
+print(uiua.compile('/+')(xs, allow_threads=True))
+# 50000.0
+
+```
 
 ## NumPy integration
 UiuaPy uses the [NumPy C-API](https://numpy.org/doc/2.1/reference/c-api/index.html) for taking in Python inputs and returning Python results.
