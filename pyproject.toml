@@ -79,7 +79,7 @@ build-backend = "setuptools.build_meta"
 
 [tool.uv]
 package = true
-cache-keys = [{ file = "pyproject.toml"}, { file = "Cargo.toml" }, { file = "Cargo.lock" }, { file = "**/*.rs" }]
+cache-keys = [{ file = "pyproject.toml"}, { file = "Cargo.toml" }, { file = "Cargo.lock" }, { file = "src/*.rs" }]
 
 [[tool.uv.index]]
 name = "testpypi"
